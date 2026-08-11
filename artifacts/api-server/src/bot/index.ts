@@ -15,7 +15,14 @@ import { db, infractionsTable, sessionVotesTable } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { getGuildSettings, updateGuildSettings } from "./config";
 import { commandBuilders } from "./commands";
-import { addImage, baseEmbed } from "./embeds";
+import {
+  addImage,
+  baseEmbed,
+  lowMemberCountEmbed,
+  sessionShutdownEmbed,
+  sessionStartedEmbed,
+  sessionVoteEmbed,
+} from "./embeds";
 import { helpEmbed } from "./help";
 import { requireAdministrator, requireConfiguredRole } from "./permissions";
 import { randomBytes } from "node:crypto";
@@ -92,13 +99,12 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
     const required = interaction.options.getInteger("votes_required", true);
     const imageUrl = optionalUrl(interaction.options.getString("image_url"));
     const voteKey = randomBytes(12).toString("hex");
-    const embed = addImage(
-      baseEmbed(settings, `${settings.serverName} • Session Vote`, `A session vote is now open. **${required}** vote${required === 1 ? "" : "s"} required to start.`)
-        .addFields({ name: "How to vote", value: "Click the button below if you are ready and required to join the session." }, { name: "Progress", value: `0 / ${required}` }),
-      imageUrl,
-    );
+    const embed = sessionVoteEmbed(settings, required, 0, interaction.user.tag, imageUrl);
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(`session_vote:${voteKey}`).setLabel("Vote to join").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`session_vote:${voteKey}`)
+        .setLabel("📚 Vote to Start Session (0)")
+        .setStyle(ButtonStyle.Primary),
     );
     const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
     await db.insert(sessionVotesTable).values({
@@ -113,18 +119,29 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
   }
 
   if (name === "session-start") {
-    await replyEmbed(interaction, addImage(baseEmbed(settings, `${settings.serverName} • Session Started`, `The ER:LC session has officially started.\n\n**Server Code:** \`${settings.serverCode}\`\n\nReport to your assigned departments and follow server procedures.`), optionalUrl(interaction.options.getString("image_url"))));
+    await replyEmbed(
+      interaction,
+      sessionStartedEmbed(
+        settings,
+        interaction.user.tag,
+        optionalUrl(interaction.options.getString("image_url")),
+      ),
+    );
     return;
   }
 
   if (name === "session-low") {
-    await replyEmbed(interaction, baseEmbed(settings, `${settings.serverName} • Low Member Count`, `The server currently has a low member count. Join the session and help bring the city to life.\n\n**Server Code:** \`${settings.serverCode}\``));
+    await interaction.reply({
+      content: "@everyone",
+      embeds: [lowMemberCountEmbed(settings)],
+      allowedMentions: { parse: ["everyone"] },
+    });
     return;
   }
 
   if (name === "session-shutdown") {
     const reason = interaction.options.getString("reason", true);
-    await replyEmbed(interaction, baseEmbed(settings, `${settings.serverName} • Session Shutdown`, `The ER:LC server has shut down due to **${reason}**.\n\n**All members must leave the server immediately to avoid moderation.**\n\nServer code: \`${settings.serverCode}\``).setColor(0xdc2626));
+    await replyEmbed(interaction, sessionShutdownEmbed(settings, reason));
     return;
   }
 
@@ -213,17 +230,27 @@ async function handleVote(interaction: ButtonInteraction): Promise<void> {
     await interaction.update({ components: [] });
     if (interaction.channel?.isSendable()) {
       await interaction.channel.send({
-        embeds: [baseEmbed(settings, `${settings.serverName} • Session Started`, `${settings.serverName} has begun a session because the vote goal was reached!\n\n**Required members:** ${voters.map((id) => `<@${id}>`).join(" ")}\n**Server Code:** \`${settings.serverCode}\``).setColor(0x16a34a)],
+        embeds: [
+          sessionStartedEmbed(settings, "Session Vote Automation").addFields({
+            name: "👥 Required Members — Vote Goal Reached",
+            value: voters.map((id) => `<@${id}>`).join(" "),
+            inline: false,
+          }),
+        ],
       });
     }
   } else {
     await db.update(sessionVotesTable).set({ voterIds: voters }).where(eq(sessionVotesTable.id, vote.id));
-    const message = await interaction.message.fetch();
-    const currentEmbed = message.embeds[0];
-    const updated = currentEmbed
-      ? EmbedBuilder.from(currentEmbed).setFields({ name: "How to vote", value: "Click the button below if you are ready and required to join the session." }, { name: "Progress", value: `${voters.length} / ${vote.votesRequired}` })
-      : undefined;
-    await interaction.update({ embeds: updated ? [updated] : undefined });
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`session_vote:${vote.voteKey}`)
+        .setLabel(`📚 Vote to Start Session (${voters.length})`)
+        .setStyle(ButtonStyle.Primary),
+    );
+    await interaction.update({
+      embeds: [sessionVoteEmbed(settings, vote.votesRequired, voters.length, "Session Vote Automation", vote.imageUrl)],
+      components: [row],
+    });
     await interaction.followUp({ content: `Vote counted. Progress: ${voters.length} / ${vote.votesRequired}.`, ephemeral: true });
   }
 }
