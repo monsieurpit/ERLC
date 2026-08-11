@@ -1,0 +1,58 @@
+System/Context:
+Act as an expert Discord bot developer using JavaScript, so Node14. I need a fully functional, production-ready Discord bot for my Roblox Emergency Response: Liberty County (ER:LC) community. The bot will be coded in Replit and hosted on Railway.
+
+Database & Deployment Requirements:
+
+Database: Use a lightweight database compatible with Railway, like PostgreSQ. It needs to store:
+
+The ER:LC Server Name
+
+The ER:LC Server Code
+
+Configured role IDs for permissions (Session Perms, Infraction Perms)
+
+Welcome message configurations
+
+Railway Setup: Provide instructions and the necessary configuration files (e.g., railway.json, package.json/requirements.txt, and a .env.example) so the environment variables are clearly defined and easy to deploy on Railway without guessing.
+
+Permission System:
+Create a setup command to configure roles:
+
+/config-roles [session_role] [infraction_role]: Saves these role IDs to the database. The commands below must check if the user has the respective role before executing.
+
+Core Setup Commands (Admin Only):
+
+/set-server-name [name]: Saves the ER:LC server name to the database.
+
+/set-server-code [code]: Saves the ER:LC server code to the database.
+
+Session Commands (Requires Session Role):
+
+/session-vote [votes_required] [image_url (optional)]: Sends a highly styled, beautiful embed stating that "[Server Name] is opening a session vote." It must include a button or reaction for users to vote.
+
+Automation: The bot must actively track these votes. Once the votes_required is reached, it must automatically send a new message: "[Server Name] has begun a session because the vote goal was reached! The following users are required to join: [Ping all users who voted]. Server Code: [Code from DB]."
+
+/session-start [image_url (optional)]: Manually starts a session. Sends a beautiful embed announcing the session has started and displays the Server Code from the database.
+
+/session-low: Sends a message stating the server has a low member count, encouraging members to join. Includes the Server Code at the bottom.
+
+/session-shutdown [reason]: Sends an embed stating the ER:LC server has shut down due to [Reason]. It must explicitly instruct all members to leave the server immediately to avoid moderation.
+
+Moderation Commands (Requires Infraction Role):
+
+/infract [user] [reason] [punishment] [appeal: yes/no]: Sends a well-formatted embed in the channel stating that Moderator X has infracted User Y. It must list the Reason, Punishment, and whether an Appeal is permitted.
+
+Utility & Engagement Commands:
+
+/say [message]: The bot repeats the message. Crucial: Hide the "User used /say" interaction tag. (Achieve this by sending the message to the channel and deferring/deleting the initial interaction ephemerally, or using a modal).
+
+/embed [title] [description] [footer] [image_url (optional)] [button_text (optional)] [button_url (optional)]: A custom embed builder. If button text and URL are provided, add a link button to the embed.
+
+/membercount: Returns a quick embed showing the total number of human members and the total number of bots in the Discord server.
+
+/welcome-setup [type: plain_text OR embed] [channel] [message]: Allows the user to configure a welcome message for new joins. Store this in the database and trigger it on the guildMemberAdd event.
+
+/help: Generates an organized embed listing all available commands, their parameters, and a brief description of what they do.
+
+Code Quality:
+Ensure the code is modular (e.g., using a command handler), heavily commented, and includes error handling so the bot doesn't crash if a user forgets an argument or if a database query fails. Provide the complete code structure.
