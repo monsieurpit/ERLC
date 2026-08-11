@@ -16,6 +16,8 @@ export async function requireConfiguredRole(
   settings: GuildSettings,
   role: "session" | "infraction",
 ): Promise<boolean> {
+  // Administrators are allowed through as an emergency override, while all
+  // other members must have the role configured for this specific guild.
   if (isAdministrator(interaction)) return true;
   const roleId = role === "session" ? settings.sessionRoleId : settings.infractionRoleId;
   const member = interaction.member;

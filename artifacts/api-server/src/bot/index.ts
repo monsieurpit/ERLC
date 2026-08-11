@@ -6,8 +6,6 @@ import {
   EmbedBuilder,
   GatewayIntentBits,
   Interaction,
-  REST,
-  Routes,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type GuildMember,
@@ -89,6 +87,8 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
   if (name === "infract" && !(await requireConfiguredRole(interaction, settings, "infraction"))) return;
 
   if (name === "session-vote") {
+    // Store the vote before accepting button clicks so the vote remains
+    // authoritative across message updates and process restarts.
     const required = interaction.options.getInteger("votes_required", true);
     const imageUrl = optionalUrl(interaction.options.getString("image_url"));
     const voteKey = randomBytes(12).toString("hex");
@@ -207,6 +207,8 @@ async function handleVote(interaction: ButtonInteraction): Promise<void> {
   const voters = [...vote.voterIds, interaction.user.id];
   const settings = await getGuildSettings(interaction.guildId);
   if (voters.length >= vote.votesRequired) {
+    // Mark the vote inactive before announcing completion. This prevents a
+    // second click racing with the completion message and starting twice.
     await db.update(sessionVotesTable).set({ voterIds: voters, active: false, completedAt: new Date() }).where(eq(sessionVotesTable.id, vote.id));
     await interaction.update({ components: [] });
     if (interaction.channel?.isSendable()) {
@@ -227,6 +229,8 @@ async function handleVote(interaction: ButtonInteraction): Promise<void> {
 }
 
 async function handleMemberJoin(member: GuildMember): Promise<void> {
+  // Welcome configuration is guild-scoped and can be changed without a
+  // restart, so it is fetched when each member joins.
   const settings = await getGuildSettings(member.guild.id);
   if (!settings.welcomeChannelId || !settings.welcomeMessage) return;
   const channel = await member.guild.channels.fetch(settings.welcomeChannelId);
