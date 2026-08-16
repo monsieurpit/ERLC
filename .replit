@@ -1,23 +1,14 @@
-modules = ["nodejs-18", "web", "bash"]
+# Disabled Replit configuration to prevent automatic runs or creating multiple workspaces.
+# This repository is intended to be deployed on Railway only. Do not auto-run on Replit.
 
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+# modules intentionally left empty to avoid Replit auto-detection
+modules = []
 
 [workflows]
-runButton = "Project"
+runButton = ""
 
 [agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
+expertMode = false
+stack = ""
 
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
-
-[nix]
-channel = "stable-25_05"
+# NOTE: If you want to re-enable Replit, restore the original .replit file from git history.
